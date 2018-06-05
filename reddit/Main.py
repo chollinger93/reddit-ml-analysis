@@ -1,5 +1,5 @@
 from __future__ import print_function
-import praw, time, json, config, os
+import praw, time, json, config, os, hashlib
 
 __author__ = "Christian Hollinger (otter-in-a-suit)"
 __version__ = "0.1.0"
@@ -13,6 +13,7 @@ class DictEncoder(json.JSONEncoder):
 
 class Post:
     def __init__(self, title, subreddit, author, upvotes, date_iso, link, type, num_comments, content):
+        self.id = hashlib.md5((title + str(date_iso)).encode('utf-8')).hexdigest()
         self.title = title
         self.subreddit = subreddit
         self.author = author
@@ -26,14 +27,14 @@ class Post:
 
     def get_csv(self):
         return "{subreddit}|{type}|\"{title}\"|{upvotes}|{num_comments}|\"{content}\"|{author}|{date}".format(
-            subreddit=self.subreddit,
-            type=self.type,
-            title=self.title,
+            subreddit=self.subreddit.encode('utf8'),
+            type=self.type.encode('utf8'),
+            title=self.title.encode('utf8'),
             upvotes=self.upvotes,
             num_comments=self.num_comments,
-            content=self.content,
-            author=self.author,
-            date=int(self.date_iso))
+            content=self.content.encode('utf8'),
+            author=self.author.encode('utf8'),
+            date=self.date_iso)
 
     def __str__(self):
         return "title: {title}, upvotes: {up}, date: {date}, link: {link}".format(title=self.title.encode('utf8'),
@@ -74,11 +75,15 @@ def get_top_posts(subreddit, reddit, limit):
             content = None
             _type = 'none'
 
-        post = Post(submission.title, submission.subreddit_name_prefixed, submission.author.name, submission.ups,
-                    submission.created, submission.permalink,
-                    _type, submission.num_comments, content)
-        posts.append(post)
-        print("title: {post}".format(post=post))
+        try:
+            post = Post(submission.title, submission.subreddit_name_prefixed, submission.author.name, submission.ups,
+                        submission.created, submission.permalink,
+                        _type, submission.num_comments, content)
+            posts.append(post)
+            print("title: {post}".format(post=post))
+        except Exception as e:
+            print(e)
+            print('Encountered error, skipping record')
 
         # https://github.com/reddit-archive/reddit/wiki/API
         # Honor fair use terms - 60 requests per minute
@@ -132,7 +137,7 @@ def main():
     posts = []
     flat_json = ''
     # Enable for debugging
-    # subreddits = ['askreddit']
+    subreddits = ['askreddit']
 
     for subreddit in subreddits:
         posts = posts + get_top_posts(subreddit, reddit, LIMIT)
