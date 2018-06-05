@@ -37,10 +37,12 @@ class Post:
             date=self.date_iso)
 
     def __str__(self):
-        return "title: {title}, upvotes: {up}, date: {date}, link: {link}".format(title=self.title.encode('utf8'),
-                                                                                  up=self.upvotes,
-                                                                                  date=self.date_str.encode('utf8'),
-                                                                                  link=self.link.encode('utf8'))
+        return "{title}, upvotes: {up}, date: {date}, link: {link}, content: {content}".format(
+            title=self.title.encode('utf8'),
+            up=self.upvotes,
+            date=self.date_str.encode('utf8'),
+            link=self.link.encode('utf8'),
+            content=self.content.encode('utf-8'))
 
 
 def get_top_posts(subreddit, reddit, limit):
@@ -59,6 +61,11 @@ def get_top_posts(subreddit, reddit, limit):
             # Self post - no header - askreddit etc.
             content = submission.title
             _type = 'question'
+        elif submission.url is not None and submission.preview is not None and submission.preview.__len__ > 0 \
+                and 'images' in submission.preview and submission.preview['images'].__len__ > 0:
+            # External media - store preview if available
+            content = submission.preview['images'][0].get('source').get('url')
+            _type = 'extMedia'
         elif submission.url is not None and submission.media is not None:
             # External media
             content = submission.url
@@ -75,15 +82,11 @@ def get_top_posts(subreddit, reddit, limit):
             content = None
             _type = 'none'
 
-        try:
-            post = Post(submission.title, submission.subreddit_name_prefixed, submission.author.name, submission.ups,
+        post = Post(submission.title, submission.subreddit_name_prefixed, submission.author.name, submission.ups,
                         submission.created, submission.permalink,
                         _type, submission.num_comments, content)
-            posts.append(post)
-            print("title: {post}".format(post=post))
-        except Exception as e:
-            print(e)
-            print('Encountered error, skipping record')
+        posts.append(post)
+        print("title: {post}".format(post=post))
 
         # https://github.com/reddit-archive/reddit/wiki/API
         # Honor fair use terms - 60 requests per minute
@@ -113,7 +116,7 @@ def main():
                          user_agent=config.creddit['user_agent'])
     # Set GCP path
     os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = config.cgcp['api_key']
-    LIMIT = 2
+    LIMIT = config.limit
 
     # Define top subreddits
     csv = 'subreddit|type|title|upvotes|num_comments|content|author|date\n'
@@ -137,10 +140,15 @@ def main():
     posts = []
     flat_json = ''
     # Enable for debugging
-    subreddits = ['askreddit']
+    subreddits = ['pics']
 
     for subreddit in subreddits:
-        posts = posts + get_top_posts(subreddit, reddit, LIMIT)
+        try:
+            posts = posts + get_top_posts(subreddit, reddit, LIMIT)
+        except Exception as e:
+            print(e)
+            print('Encountered error, skipping record')
+            continue
 
     for post in posts:
         csv += post.get_csv() + '\n'
