@@ -129,19 +129,24 @@ def main():
                   'StarWars',
                   'Frugal', 'HistoryPorn', 'AnimalsBeingJerks', 'RealGirls', 'travel', 'buildapc', 'OutOfTheLoop']
     posts = []
-
+    flat_json = ''
     # Enable for debugging
-    # subreddits = ['askreddit']
+    subreddits = ['askreddit']
 
     for subreddit in subreddits:
         posts = posts + get_top_posts(subreddit, reddit, LIMIT)
 
     for post in posts:
         csv += post.get_csv() + '\n'
+        flat_json += json.dumps(post.__dict__) + '\n'
 
-    # Write back Json
+    # Write back Json as array
+    # with open(config.creddit['file'], 'w') as file:
+    #    file.write(json.dumps([ob.__dict__ for ob in posts]))
+
+    # Write back JSON one line at a time for DataFlow
     with open(config.creddit['file'], 'w') as file:
-        file.write(json.dumps([ob.__dict__ for ob in posts]))
+        file.write(flat_json)
 
     write_json_gcp()
 

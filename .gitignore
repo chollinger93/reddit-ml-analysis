@@ -6,3 +6,5 @@ config.pyc
 .DS_Store
 *.csv
 dataflow/*
+*.json
+*-of-*
