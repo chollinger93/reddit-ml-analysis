@@ -17,7 +17,7 @@ class Post:
         self.subreddit = subreddit
         self.author = author
         self.upvotes = upvotes
-        self.date_iso = date_iso
+        self.date_iso = int(date_iso)
         self.link = link
         self.date_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(date_iso))
         self.type = type
@@ -36,8 +36,10 @@ class Post:
             date=int(self.date_iso))
 
     def __str__(self):
-        return "title: {title}, upvotes: {up}, date: {date}, link: {link}".format(title=self.title, up=self.upvotes,
-                                                                                  date=self.date_str, link=self.link)
+        return "title: {title}, upvotes: {up}, date: {date}, link: {link}".format(title=self.title.encode('utf8'),
+                                                                                  up=self.upvotes,
+                                                                                  date=self.date_str.encode('utf8'),
+                                                                                  link=self.link.encode('utf8'))
 
 
 def get_top_posts(subreddit, reddit, limit):
@@ -111,27 +113,26 @@ def main():
     # Define top subreddits
     csv = 'subreddit|type|title|upvotes|num_comments|content|author|date\n'
     subreddits = ['announcements', 'funny', 'AskReddit', 'todayilearned', 'science', 'worldnews', 'pics', 'IAmA',
-                  'gaming',
-                  'videos', 'movies', 'aww', 'Music', 'blog', 'gifs', 'news', 'explainlikeimfive', 'askscience',
+                  'gaming', 'videos', 'movies', 'aww', 'Music', 'blog', 'gifs', 'news', 'explainlikeimfive',
+                  'askscience',
                   'EarthPorn', 'books', 'television', 'mildlyinteresting', 'LifeProTips', 'Showerthoughts', 'space',
-                  'DIY',
-                  'Jokes', 'gadgets', 'nottheonion', 'sports', 'tifu', 'food', 'photoshopbattles', 'Documentaries',
+                  'DIY', 'Jokes', 'gadgets', 'nottheonion', 'sports', 'tifu', 'food', 'photoshopbattles',
+                  'Documentaries',
                   'Futurology', 'history', 'InternetIsBeautiful', 'dataisbeautiful', 'UpliftingNews', 'listentothis',
                   'GetMotivated', 'personalfinance', 'OldSchoolCool', 'philosophy', 'Art', 'nosleep', 'WritingPrompts',
                   'creepy', 'TwoXChromosomes', 'Fitness', 'technology', 'WTF', 'bestof', 'AdviceAnimals', 'politics',
                   'atheism', 'interestingasfuck', 'europe', 'woahdude', 'BlackPeopleTwitter', 'oddlysatisfying',
-                  'gonewild',
-                  'leagueoflegends', 'pcmasterrace', 'reactiongifs', 'gameofthrones', 'wholesomememes', 'Unexpected',
+                  'gonewild', 'leagueoflegends', 'pcmasterrace', 'reactiongifs', 'gameofthrones', 'wholesomememes',
+                  'Unexpected',
                   'Overwatch', 'facepalm', 'trees', 'Android', 'lifehacks', 'me_irl', 'relationships', 'Games', 'nba',
                   'programming', 'tattoos', 'NatureIsFuckingLit', 'Whatcouldgowrong', 'CrappyDesign', 'dankmemes',
-                  'nsfw',
-                  'cringepics', '4chan', 'soccer', 'comics', 'sex', 'pokemon', 'malefashionadvice', 'NSFW_GIF',
-                  'StarWars',
-                  'Frugal', 'HistoryPorn', 'AnimalsBeingJerks', 'RealGirls', 'travel', 'buildapc', 'OutOfTheLoop']
+                  'nsfw', 'cringepics', '4chan', 'soccer', 'comics', 'sex', 'pokemon', 'malefashionadvice', 'NSFW_GIF',
+                  'StarWars', 'Frugal', 'HistoryPorn', 'AnimalsBeingJerks', 'RealGirls', 'travel', 'buildapc',
+                  'OutOfTheLoop']
     posts = []
     flat_json = ''
     # Enable for debugging
-    subreddits = ['askreddit']
+    # subreddits = ['askreddit']
 
     for subreddit in subreddits:
         posts = posts + get_top_posts(subreddit, reddit, LIMIT)
@@ -140,13 +141,14 @@ def main():
         csv += post.get_csv() + '\n'
         flat_json += json.dumps(post.__dict__) + '\n'
 
-    # Write back Json as array
-    # with open(config.creddit['file'], 'w') as file:
-    #    file.write(json.dumps([ob.__dict__ for ob in posts]))
-
-    # Write back JSON one line at a time for DataFlow
-    with open(config.creddit['file'], 'w') as file:
-        file.write(flat_json)
+    if config.use_json_array == 'true':
+        # Write back Json as array
+        with open(config.creddit['file'], 'w') as file:
+            file.write(json.dumps([ob.__dict__ for ob in posts]))
+    else:
+        # Write back JSON one line at a time for DataFlow
+        with open(config.creddit['file'], 'w') as file:
+            file.write(flat_json)
 
     write_json_gcp()
 

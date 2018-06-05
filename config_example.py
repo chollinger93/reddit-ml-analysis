@@ -9,3 +9,4 @@ cgcp = dict(
     bucket='',
     file='reddit.json'
 )
+use_json_array = 'false'
