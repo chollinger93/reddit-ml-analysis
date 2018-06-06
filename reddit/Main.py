@@ -20,7 +20,7 @@ class Post:
         self.upvotes = upvotes
         self.date_iso = int(date_iso)
         self.link = link
-        self.date_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(date_iso))
+        #self.date_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(date_iso))
         self.type = type
         self.num_comments = num_comments
         self.content = content
@@ -40,7 +40,7 @@ class Post:
         return "{title}, upvotes: {up}, date: {date}, link: {link}, content: {content}".format(
             title=self.title.encode('utf8'),
             up=self.upvotes,
-            date=self.date_str.encode('utf8'),
+            date=time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(self.date_iso)).encode('utf8'),
             link=self.link.encode('utf8'),
             content=self.content.encode('utf-8'))
 
