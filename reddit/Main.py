@@ -20,7 +20,7 @@ class Post:
         self.upvotes = upvotes
         self.date_iso = int(date_iso)
         self.link = link
-        #self.date_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(date_iso))
+        # self.date_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(date_iso))
         self.type = type
         self.num_comments = num_comments
         self.content = content
@@ -83,8 +83,8 @@ def get_top_posts(subreddit, reddit, limit):
             _type = 'none'
 
         post = Post(submission.title, submission.subreddit_name_prefixed, submission.author.name, submission.ups,
-                        submission.created, submission.permalink,
-                        _type, submission.num_comments, content)
+                    submission.created, submission.permalink,
+                    _type, submission.num_comments, content)
         posts.append(post)
         print("title: {post}".format(post=post))
 
@@ -140,28 +140,30 @@ def main():
     posts = []
     flat_json = ''
     # Enable for debugging
-    subreddits = ['pics']
+    # subreddits = ['pics']
 
     for subreddit in subreddits:
+        flat_json = ''
         try:
-            posts = posts + get_top_posts(subreddit, reddit, LIMIT)
+            top_posts = get_top_posts(subreddit, reddit, LIMIT)
+            posts = posts + top_posts
+
+            for post in top_posts:
+                csv += post.get_csv() + '\n'
+                flat_json += json.dumps(post.__dict__) + '\n'
+
+            if config.use_json_array == 'true':
+                # Write back Json as array
+                with open(config.creddit['file'], 'a') as file:
+                    file.write(json.dumps([ob.__dict__ for ob in posts]))
+            else:
+                # Write back JSON one line at a time for DataFlow
+                with open(config.creddit['file'], 'a') as file:
+                    file.write(flat_json)
         except Exception as e:
             print(e)
             print('Encountered error, skipping record')
             continue
-
-    for post in posts:
-        csv += post.get_csv() + '\n'
-        flat_json += json.dumps(post.__dict__) + '\n'
-
-    if config.use_json_array == 'true':
-        # Write back Json as array
-        with open(config.creddit['file'], 'w') as file:
-            file.write(json.dumps([ob.__dict__ for ob in posts]))
-    else:
-        # Write back JSON one line at a time for DataFlow
-        with open(config.creddit['file'], 'w') as file:
-            file.write(flat_json)
 
     write_json_gcp()
 
