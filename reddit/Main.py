@@ -53,40 +53,45 @@ def get_top_posts(subreddit, reddit, limit):
         if submission.pinned:
             continue
 
-        if submission.is_self and submission.selftext is not None:
-            # Self post - text
-            content = submission.selftext
-            _type = 'self'
-        elif submission.is_self and submission.selftext is None:
-            # Self post - no header - askreddit etc.
-            content = submission.title
-            _type = 'question'
-        elif submission.url is not None and submission.preview is not None and submission.preview.__len__ > 0 \
-                and 'images' in submission.preview and submission.preview['images'].__len__ > 0:
-            # External media - store preview if available
-            content = submission.preview['images'][0].get('source').get('url')
-            _type = 'extMedia'
-        elif submission.url is not None and submission.media is not None:
-            # External media
-            content = submission.url
-            _type = 'extMedia'
-        elif submission.url is not None and submission.media is None:
-            # External link
-            if 'imgur' in submission.url or '.jpg' in submission.url or '.png' in submission.url or '.gif' in submission.url:
+        try:
+            if submission.is_self and submission.selftext is not None:
+                # Self post - text
+                content = submission.selftext
+                _type = 'self'
+            elif submission.is_self and submission.selftext is None:
+                # Self post - no header - askreddit etc.
+                content = submission.title
+                _type = 'question'
+            elif submission.url is not None and submission.preview is not None and submission.preview.__len__ > 0 \
+                    and 'images' in submission.preview and submission.preview['images'].__len__ > 0:
+                # External media - store preview if available
+                content = submission.preview['images'][0].get('source').get('url')
                 _type = 'extMedia'
+            elif submission.url is not None and submission.media is not None:
+                # External media
+                content = submission.url
+                _type = 'extMedia'
+            elif submission.url is not None and submission.media is None:
+                # External link
+                if 'imgur' in submission.url or '.jpg' in submission.url or '.png' in submission.url or '.gif' in submission.url:
+                    _type = 'extMedia'
+                else:
+                    _type = 'link'
+                content = submission.url
             else:
-                _type = 'link'
-            content = submission.url
-        else:
-            # Empty post
-            content = None
-            _type = 'none'
+                # Empty post
+                content = None
+                _type = 'none'
+                continue
 
-        post = Post(submission.title, submission.subreddit_name_prefixed, submission.author.name, submission.ups,
+            post = Post(submission.title, submission.subreddit_name_prefixed, submission.author.name, submission.ups,
                     submission.created, submission.permalink,
                     _type, submission.num_comments, content)
-        posts.append(post)
-        print("title: {post}".format(post=post))
+            posts.append(post)
+            print("subreddit: {subreddit}".format(subreddit=submission.subreddit_name_prefixed))
+        except Exception as e:
+            print(e)
+            continue
 
         # https://github.com/reddit-archive/reddit/wiki/API
         # Honor fair use terms - 60 requests per minute
@@ -159,7 +164,7 @@ def main():
             else:
                 # Write back JSON one line at a time for DataFlow
                 with open(config.creddit['file'], 'a') as file:
-                    file.write(flat_json)
+                    file.write(flat_json.encode('utf8'))
         except Exception as e:
             print(e)
             print('Encountered error, skipping record')

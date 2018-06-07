@@ -5,7 +5,7 @@ config.pyc
 .idea/*
 .DS_Store
 *.csv
-dataflow/*
 *.json
 *-of-*
 *.sh
+data/*

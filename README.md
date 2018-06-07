@@ -24,7 +24,7 @@ vim config.py
 Set your reddit API and GCP keys here. Create the GCS bucket before via the Cloud Console.
 
 ## Run
-Simply run `python Main.py` from your Cloud Shell or local machine.
+Simply run `python -m reddit.Main` from your Cloud Shell or local machine.
 
 
 ## License
