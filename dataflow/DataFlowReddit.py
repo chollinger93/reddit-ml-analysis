@@ -10,6 +10,8 @@ from apache_beam.io import ReadFromText
 from apache_beam.io import WriteToText
 from apache_beam.options.pipeline_options import PipelineOptions, GoogleCloudOptions
 from apache_beam.options.pipeline_options import SetupOptions
+from google.cloud import vision
+from google.cloud.vision import types
 
 
 class JsonCoder(object):
@@ -38,6 +40,14 @@ class Split(beam.DoFn):
             return None
 
 
+class img():
+    def __init__(self, id, description, score, topicality):
+        self.id = id
+        self.description = description
+        self.score = score
+        self.topicality = topicality
+
+
 class GetImage(beam.DoFn):
     def __init__(self, tmp, output, bucket):
         self.tmp_image_loc = tmp
@@ -57,14 +67,40 @@ class GetImage(beam.DoFn):
         blob.upload_from_filename(_input)
         print('Uploaded {} to {} in bucket {}'.format(_input, _output, bucket_name))
 
+    def read_gcs(self, filename, bucket_name):
+        from google.cloud import storage
+        # Instantiates a client
+        storage_client = storage.Client()
+        bucket = storage_client.get_bucket(bucket_name)
+        return bucket.get_blob(filename).download_as_string()
+
+    def get_vision(self, filename, id):
+        c_image = self.read_gcs(filename, self.bucket)
+        client = vision.ImageAnnotatorClient()
+        image = types.Image(content=c_image)
+        # Performs label detection on the image file
+        response = client.label_detection(image=image)
+        labels = response.label_annotations
+
+        # Transform the labels to a custom class we can parse as JSON
+        label_dict = []
+        for label in labels:
+            label_dict.append(img(id, label.description, label.score, label.topicality))
+
+        # Return a JSON Array for no apparent reason whatsoever
+        # _json = json.dumps([ob.__dict__ for ob in label_dict], ensure_ascii=False).encode('utf8')
+        # return _json
+        return label_dict
+
     def process(self, record):
         print('Image: ' + record['image'])
         tmpuri = self.tmp_image_loc + record['post']['id'] + '.jpg'
+        # Download the image, upload to GCS
         urllib.urlretrieve(record['image'], tmpuri)
         self.write_gcp(tmpuri, self.outputloc + record['post']['id'] + '.jpg', self.bucket)
-        return [
-            tmpuri
-        ]
+        labels = self.get_vision(self.outputloc + record['post']['id'] + '.jpg', record['post']['id'])
+        for label in labels:
+            yield label.__dict__
 
 
 class GetPostBySubreddit(beam.DoFn):
@@ -74,24 +110,6 @@ class GetPostBySubreddit(beam.DoFn):
             # (record['post']['subreddit'], record['post'])
             (record['post'])
         ]
-
-
-class BuildSchema(beam.DoFn):
-    def process(self, record):
-        dict_ = {}
-        _input = record['post']
-        dict_['id'] = _input['id']
-        dict_['date_iso'] = int(_input['date_iso'])
-        dict_['author'] = _input['author']
-        dict_['type'] = _input['type']
-        dict_['title'] = _input['title']
-        dict_['subreddit'] = _input['subreddit']
-        dict_['content'] = _input['content']
-        dict_['link'] = _input['link']
-        dict_['num_comments'] = int(_input['num_comments'])
-        dict_['upvotes'] = int(_input['upvotes'])
-        dict_['date_str'] = _input['date_str']
-        return [dict_]
 
 
 def run(argv=None):
@@ -104,6 +122,10 @@ def run(argv=None):
                         dest='output',
                         required=True,
                         help='Output to write results to.')
+    parser.add_argument('--imgOutput',
+                        dest='img_output',
+                        required=True,
+                        help='Image output to write results to.')
     parser.add_argument('--tmp',
                         dest='tmp',
                         required=False,
@@ -147,7 +169,6 @@ def run(argv=None):
             # | 'GroupByKey' >> beam.GroupByKey()
         )
 
-        # 'Build schema' >> beam.ParDo(BuildSchema()) |
         if known_args.use_bq:
             posts | 'Write to BQ' >> beam.io.WriteToBigQuery(
                 known_args.output,
@@ -156,6 +177,15 @@ def run(argv=None):
                 write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND)
         else:
             posts | 'Write to FS' >> WriteToText(known_args.output, coder=JsonCoder())
+
+        if known_args.use_bq:
+            images | 'Write images to BQ' >> beam.io.WriteToBigQuery(
+                known_args.img_output,
+                schema='id:STRING,description:STRING,topicality:FLOAT,score:FLOAT',
+                create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
+                write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND)
+        else:
+            images | 'Write images to FS' >> WriteToText(known_args.img_output, coder=JsonCoder())
 
 
 if __name__ == '__main__':

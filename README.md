@@ -12,6 +12,7 @@ Install dependencies:
 ```
 pip install --upgrade google-cloud-storage
 pip install --upgrade praw
+pip install --upgrade google-cloud-vision
 ```
 
 ## Configuration
