@@ -59,11 +59,26 @@ class GetImage(beam.DoFn):
         self.outputloc = output
         self.bucket = bucket
 
+    def process(self, record):
+        print('Image: ' + record['image'])
+        tmpuri = self.tmp_image_loc + record['post']['id'] + '.jpg'
+        # Download the image, upload to GCS
+        urllib.urlretrieve(record['image'], tmpuri)
+        return [{
+            'uri': tmpuri,
+            'post': record['post']
+        }]
+
+
+class StoreGcp(beam.DoFn):
+    def __init__(self, output, bucket):
+        self.outputloc = output
+        self.bucket = bucket
+
     def write_gcp(self, _input, _output, bucket_name):
         from google.cloud import storage
         # Instantiates a client
         storage_client = storage.Client()
-
         # Gets bucket
         bucket = storage_client.get_bucket(bucket_name)
         blob = bucket.blob(_output)
@@ -79,6 +94,13 @@ class GetImage(beam.DoFn):
         bucket = storage_client.get_bucket(bucket_name)
         return bucket.get_blob(filename).download_as_string()
 
+    def process(self, record):
+        print(record['uri'])
+        self.write_gcp(record['uri'], self.outputloc + record['post']['id'] + '.jpg', self.bucket)
+        return record['uri']
+
+
+class GetVisionApi(beam.DoFn):
     def read_image(self, filename):
         # The name of the image file to annotate
         file_name = os.path.join(
@@ -106,12 +128,7 @@ class GetImage(beam.DoFn):
         return label_dict
 
     def process(self, record):
-        print('Image: ' + record['image'])
-        tmpuri = self.tmp_image_loc + record['post']['id'] + '.jpg'
-        # Download the image, upload to GCS
-        urllib.urlretrieve(record['image'], tmpuri)
-        self.write_gcp(tmpuri, self.outputloc + record['post']['id'] + '.jpg', self.bucket)
-        labels = self.get_vision(tmpuri, record['post']['id'])
+        labels = self.get_vision(record['uri'], record['post']['id'])
 
         for label in labels:
             yield {
@@ -178,10 +195,15 @@ def run(argv=None):
             'Splitting records' >> beam.ParDo(Split())
         )
 
-        images = (
+        image_uris = (
             records |
             'Filter images' >> beam.Filter(lambda record: record['image'] is not None) |
             'Get image' >> beam.ParDo(GetImage(known_args.tmp, 'images/', known_args.bucket))
+        )
+
+        images = (
+            image_uris |
+            'Get VisionAPI' >> beam.ParDo(GetVisionApi())
         )
 
         posts = (
@@ -207,6 +229,11 @@ def run(argv=None):
                 write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND)
         else:
             images | 'Write images to FS' >> WriteToText(known_args.img_output, coder=JsonCoder())
+
+        image_gcp = (
+            image_uris |
+            'Store images to GCP' >> beam.ParDo(StoreGcp('images/', known_args.bucket))
+        )
 
 
 if __name__ == '__main__':
