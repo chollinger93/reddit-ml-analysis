@@ -6,6 +6,8 @@ import logging
 import urllib
 import sys
 import apache_beam as beam
+import os
+import io
 from apache_beam.io import ReadFromText
 from apache_beam.io import WriteToText
 from apache_beam.options.pipeline_options import PipelineOptions, GoogleCloudOptions
@@ -43,7 +45,10 @@ class Split(beam.DoFn):
 class img():
     def __init__(self, id, description, score, topicality):
         self.id = id
-        self.description = description
+        if description is not None:
+            self.description = description
+        else:
+            self.description = ''
         self.score = score
         self.topicality = topicality
 
@@ -74,8 +79,19 @@ class GetImage(beam.DoFn):
         bucket = storage_client.get_bucket(bucket_name)
         return bucket.get_blob(filename).download_as_string()
 
+    def read_image(self, filename):
+        # The name of the image file to annotate
+        file_name = os.path.join(
+            os.path.dirname(__file__),
+            filename)
+
+        # Loads the image into memory
+        with io.open(file_name, 'rb') as image_file:
+            return image_file.read()
+
     def get_vision(self, filename, id):
-        c_image = self.read_gcs(filename, self.bucket)
+        # c_image = self.read_gcs(filename, self.bucket)
+        c_image = self.read_image(filename)
         client = vision.ImageAnnotatorClient()
         image = types.Image(content=c_image)
         # Performs label detection on the image file
@@ -87,9 +103,6 @@ class GetImage(beam.DoFn):
         for label in labels:
             label_dict.append(img(id, label.description, label.score, label.topicality))
 
-        # Return a JSON Array for no apparent reason whatsoever
-        # _json = json.dumps([ob.__dict__ for ob in label_dict], ensure_ascii=False).encode('utf8')
-        # return _json
         return label_dict
 
     def process(self, record):
@@ -98,17 +111,25 @@ class GetImage(beam.DoFn):
         # Download the image, upload to GCS
         urllib.urlretrieve(record['image'], tmpuri)
         self.write_gcp(tmpuri, self.outputloc + record['post']['id'] + '.jpg', self.bucket)
-        labels = self.get_vision(self.outputloc + record['post']['id'] + '.jpg', record['post']['id'])
+        labels = self.get_vision(tmpuri, record['post']['id'])
+
         for label in labels:
-            yield label.__dict__
+            yield {
+                'id': label.id,
+                'description': label.description,
+                'score': label.score,
+                'topicality': label.topicality
+            }
 
 
 class GetPostBySubreddit(beam.DoFn):
     def process(self, record):
         print('Post: ' + record['post']['title'].encode('utf-8'))
+        post = record['post']
+        print(post)
         return [
             # (record['post']['subreddit'], record['post'])
-            (record['post'])
+            post
         ]
 
 
@@ -181,7 +202,7 @@ def run(argv=None):
         if known_args.use_bq:
             images | 'Write images to BQ' >> beam.io.WriteToBigQuery(
                 known_args.img_output,
-                schema='id:STRING,description:STRING,topicality:FLOAT,score:FLOAT',
+                schema='id:STRING,description:STRING,score:FLOAT,topicality:FLOAT',
                 create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
                 write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND)
         else:
