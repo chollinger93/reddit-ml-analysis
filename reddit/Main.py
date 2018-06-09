@@ -85,8 +85,8 @@ def get_top_posts(subreddit, reddit, limit):
                 continue
 
             post = Post(submission.title, submission.subreddit_name_prefixed, submission.author.name, submission.ups,
-                    submission.created, submission.permalink,
-                    _type, submission.num_comments, content)
+                        submission.created, submission.permalink,
+                        _type, submission.num_comments, content)
             posts.append(post)
             print("subreddit: {subreddit}".format(subreddit=submission.subreddit_name_prefixed))
         except Exception as e:
@@ -145,7 +145,7 @@ def main():
     posts = []
     flat_json = ''
     # Enable for debugging
-    # subreddits = ['pics']
+    #subreddits = ['pics', 'EarthPorn']
 
     for subreddit in subreddits:
         flat_json = ''
@@ -159,18 +159,18 @@ def main():
 
             if config.use_json_array == 'true':
                 # Write back Json as array
-                with open(config.creddit['file'], 'a') as file:
+                with open(subreddit + config.creddit['file'], 'a') as file:
                     file.write(json.dumps([ob.__dict__ for ob in posts]))
             else:
                 # Write back JSON one line at a time for DataFlow
-                with open(config.creddit['file'], 'a') as file:
+                with open(subreddit + config.creddit['file'], 'a') as file:
                     file.write(flat_json.encode('utf8'))
+
+            write_json_gcp(subreddit + config.creddit['file'], subreddit + config.creddit['file'])
         except Exception as e:
             print(e)
             print('Encountered error, skipping record')
             continue
-
-    write_json_gcp()
 
 
 if __name__ == "__main__":
