@@ -9,3 +9,4 @@ config.pyc
 *-of-*
 *.sh
 data/*
+*.pyc

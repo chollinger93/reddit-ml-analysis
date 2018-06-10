@@ -8,6 +8,7 @@ import sys
 import apache_beam as beam
 import os
 import io
+import base64
 from apache_beam.io import ReadFromText
 from apache_beam.io import WriteToText
 from apache_beam.options.pipeline_options import PipelineOptions, GoogleCloudOptions
@@ -70,7 +71,7 @@ class GetImage(beam.DoFn):
 
         # Upload
         blob.upload_from_filename(_input)
-        print('Uploaded {} to {} in bucket {}'.format(_input, _output, bucket_name))
+        logging.info('Uploaded %s to %s in bucket %s', _input, _output, bucket_name)
 
     def read_gcs(self, filename, bucket_name):
         from google.cloud import storage
@@ -79,7 +80,8 @@ class GetImage(beam.DoFn):
         bucket = storage_client.get_bucket(bucket_name)
         return bucket.get_blob(filename).download_as_string()
 
-    def read_image(self, filename):
+    def get_vision(self, filename, id):
+        # c_image = self.read_gcs(filename, self.bucket)
         # The name of the image file to annotate
         file_name = os.path.join(
             os.path.dirname(__file__),
@@ -87,11 +89,10 @@ class GetImage(beam.DoFn):
 
         # Loads the image into memory
         with io.open(file_name, 'rb') as image_file:
-            return image_file.read()
+            c_image = image_file.read()
+            # c_image = base64.b64encode(image_content)
 
-    def get_vision(self, filename, id):
-        # c_image = self.read_gcs(filename, self.bucket)
-        c_image = self.read_image(filename)
+        logging.info('Sending %s to Vision API', file_name)
         client = vision.ImageAnnotatorClient()
         image = types.Image(content=c_image)
         # Performs label detection on the image file
@@ -106,15 +107,23 @@ class GetImage(beam.DoFn):
         return label_dict
 
     def process(self, record):
-        print('Image: ' + record['image'])
+        logging.info('Image: ' + record['image'])
         tmpuri = self.tmp_image_loc + record['post']['id'] + '.jpg'
         # Download the image, upload to GCS
         urllib.urlretrieve(record['image'], tmpuri)
         self.write_gcp(tmpuri, self.outputloc + record['post']['id'] + '.jpg', self.bucket)
         labels = self.get_vision(tmpuri, record['post']['id'])
+        # Cleanup
+        try:
+            logging.info('Removing %s', tmpuri)
+            os.remove(tmpuri)
+        except OSError, e:
+            logging.error("%s - %s.", e.filename, e.strerror)
 
         for label in labels:
+            logging.info('Received label %s', label.description)
             yield {
+                'subreddit': record['post']['subreddit'],
                 'id': label.id,
                 'description': label.description,
                 'score': label.score,
@@ -124,9 +133,9 @@ class GetImage(beam.DoFn):
 
 class GetPostBySubreddit(beam.DoFn):
     def process(self, record):
-        print('Post: ' + record['post']['title'].encode('utf-8'))
+        logging.info('Post: ' + record['post']['title'].encode('utf-8'))
         post = record['post']
-        print(post)
+        logging.info(post)
         return [
             # (record['post']['subreddit'], record['post'])
             post
@@ -168,7 +177,7 @@ def run(argv=None):
 
     if known_args.use_bq and pipeline_options.view_as(GoogleCloudOptions).project is None:
         parser.print_usage()
-        print(sys.argv[0] + ': Error: argument --project is required')
+        logging.info(sys.argv[0] + ': Error: argument --project is required')
         sys.exit(1)
 
     with beam.Pipeline(options=pipeline_options) as p:
@@ -202,7 +211,7 @@ def run(argv=None):
         if known_args.use_bq:
             images | 'Write images to BQ' >> beam.io.WriteToBigQuery(
                 known_args.img_output,
-                schema='id:STRING,description:STRING,score:FLOAT,topicality:FLOAT',
+                schema='id:STRING,subreddit:STRING,description:STRING,score:FLOAT,topicality:FLOAT',
                 create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
                 write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND)
         else:
