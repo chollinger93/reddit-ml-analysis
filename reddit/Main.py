@@ -1,5 +1,12 @@
 from __future__ import print_function
-import praw, time, json, config, os, hashlib
+
+import config
+import hashlib
+import json
+import os
+import praw
+import time
+from google.cloud import pubsub_v1
 
 __author__ = "Christian Hollinger (otter-in-a-suit)"
 __version__ = "0.1.0"
@@ -114,6 +121,15 @@ def write_json_gcp(_input=config.creddit['file'], _output=config.cgcp['file'], b
     print('Uploaded {} to {} in bucket {}'.format(_input, _output, bucket_name))
 
 
+def write_to_pub_sub(message, project, topic_name):
+    print('Writing to PubSub')
+    publisher = pubsub_v1.PublisherClient()
+    print(os.getenv('GOOGLE_APPLICATION_CREDENTIALS'))
+    topic_path = publisher.topic_path(project, topic_name)
+    data = message.encode('utf-8')
+    publisher.publish(topic_path, data=data)
+
+
 def main():
     # Get reddit instance
     reddit = praw.Reddit(client_id=config.creddit['client_id'],
@@ -145,7 +161,7 @@ def main():
     posts = []
     flat_json = ''
     # Enable for debugging
-    #subreddits = ['pics', 'EarthPorn']
+    subreddits = ['AskReddit']
 
     for subreddit in subreddits:
         flat_json = ''
@@ -155,6 +171,8 @@ def main():
 
             for post in top_posts:
                 csv += post.get_csv() + '\n'
+                if config.use_pub_sub == 'true':
+                    write_to_pub_sub(json.dumps(post.__dict__), config.cgcp['project'], config.cgcp['topic'])
                 flat_json += json.dumps(post.__dict__) + '\n'
 
             if config.use_json_array == 'true':

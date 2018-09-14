@@ -7,7 +7,10 @@ creddit = dict(
 cgcp = dict(
     api_key='',
     bucket='',
-    file='reddit.json'
+    file='reddit.json',
+    topic='',
+    project=''
 )
 use_json_array = 'false'
+use_pub_sub = 'false'
 limit = 200

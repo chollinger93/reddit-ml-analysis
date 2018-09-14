@@ -3,6 +3,8 @@ Simple Python scripts that reads the top posts from popular subreddits and store
 
 A Apache Beam / Google Data Flow pipeline reads the data from GCS, applies the Cloud Vision API for image label detection and writes the results back to BigQuery.
 
+A separate Beam pipeline, written in Java, can be used to stream messages directly to BigQuery from PubSUb without parsing the data using ML. 
+
 This is a work-in progress project for my [blog](https://otter-in-a-suit.com/blog).
 
 ### Prerequisites
@@ -27,6 +29,17 @@ vim config.py
 ```
 
 Set your reddit API and GCP keys here. Create the GCS bucket before via the Cloud Console.
+
+If you plan to use PubSub, enable the corresponding option.
+
+## PubSub
+If PubSub is enabled, the script will write the message to PubSub as well. Create a topic as follows -
+```
+TOPIC=your_topic_name
+SUB=your_sub_name
+gcloud pubsub topics create $TOPIC
+gcloud pubsub subscriptions create $SUB --topic $TOPIC
+```
 
 ## Get data
 Simply run `python -m reddit.Main` from your Cloud Shell or local machine.

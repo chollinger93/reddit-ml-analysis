@@ -1,2 +1,5 @@
 google-cloud-storage==1.10.0
 google-cloud-vision==0.31.0
+apache_beam
+praw
+google-cloud-pubsub
