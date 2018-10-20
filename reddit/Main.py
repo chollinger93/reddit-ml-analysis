@@ -80,7 +80,7 @@ def get_top_posts(subreddit, reddit, limit):
                 _type = 'extMedia'
             elif submission.url is not None and submission.media is None:
                 # External link
-                if 'imgur' in submission.url or '.jpg' in submission.url or '.png' in submission.url or '.gif' in submission.url:
+                if 'imgur' in submission.url or '.jpg' in submission.url or '.png' in submission.url: #or '.gif' in submission.url:
                     _type = 'extMedia'
                 else:
                     _type = 'link'
@@ -124,8 +124,10 @@ def write_json_gcp(_input=config.creddit['file'], _output=config.cgcp['file'], b
 def write_to_pub_sub(message, project, topic_name):
     print('Writing to PubSub')
     publisher = pubsub_v1.PublisherClient()
-    print(os.getenv('GOOGLE_APPLICATION_CREDENTIALS'))
     topic_path = publisher.topic_path(project, topic_name)
+
+    print(os.getenv('GOOGLE_APPLICATION_CREDENTIALS'))
+
     data = message.encode('utf-8')
     publisher.publish(topic_path, data=data)
 

@@ -9,7 +9,12 @@ cgcp = dict(
     bucket='',
     file='reddit.json',
     topic='',
-    project=''
+    project='',
+    images=''
+)
+crawler = dict(
+    subreddit='',
+    path='/tmp/images/reddit/'
 )
 use_json_array = 'false'
 use_pub_sub = 'false'

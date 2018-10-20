@@ -1,9 +1,11 @@
 # Reddit Analysis
-Simple Python scripts that reads the top posts from popular subreddits and stores them as JSON. JSONs will be uploaded to Google Cloud storage.
+A collection of Python scripts that read the top posts from popular subreddits and stores them as JSON. JSONs will be uploaded to Google Cloud storage.
 
 A Apache Beam / Google Data Flow pipeline reads the data from GCS, applies the Cloud Vision API for image label detection and writes the results back to BigQuery.
 
 A separate Beam pipeline, written in Java, can be used to stream messages directly to BigQuery from PubSUb without parsing the data using ML. 
+
+A Python script that downloads images from a certain subreddit, stores them on GCS, and prepares a CSV for Cloud AutoML.
 
 This is a work-in progress project for my [blog](https://otter-in-a-suit.com/blog).
 
@@ -41,8 +43,11 @@ gcloud pubsub topics create $TOPIC
 gcloud pubsub subscriptions create $SUB --topic $TOPIC
 ```
 
-## Get data
+## Get JSON data
 Simply run `python -m reddit.Main` from your Cloud Shell or local machine.
+
+## Get images
+Simply run `python -m reddit.ImageCrawler` from your Cloud Shell or local machine.
 
 ## Run DataFlow
 Enable the required APIs for DataFlow, BigQuery, and Vision API and run the following code from your Google Cloud Shell:
