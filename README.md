@@ -7,12 +7,17 @@ A separate Beam pipeline, written in Java, can be used to stream messages direct
 
 A Python script that downloads images from a certain subreddit, stores them on GCS, and prepares a CSV for Cloud AutoML.
 
+A Python script that sends an image to AutoML for classification.
+
+Most programs require a Service Account JSON key.
+
 This is a work-in progress project for my [blog](https://otter-in-a-suit.com/blog).
 
 ### Prerequisites
 * Python 2.7.3
 * A Google Cloud project
 * An existing GCS bucket
+* An existing AutoML model for automl.automl_rest.py
 
 ## Install
 Install dependencies:
@@ -48,6 +53,9 @@ Simply run `python -m reddit.Main` from your Cloud Shell or local machine.
 
 ## Get images
 Simply run `python -m reddit.ImageCrawler` from your Cloud Shell or local machine.
+
+## Classify images
+If you have an AutoML model, run `python2 automl_rest.py $img $project $model_id` from your Cloud Shell or local machine.
 
 ## Run DataFlow
 Enable the required APIs for DataFlow, BigQuery, and Vision API and run the following code from your Google Cloud Shell:
